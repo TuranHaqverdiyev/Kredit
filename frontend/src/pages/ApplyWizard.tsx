@@ -604,24 +604,18 @@ function ApplyWizard() {
             </div>
 
             <div className="form-group" style={{ marginTop: '2rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                    <label className="form-label" style={{ marginBottom: 0 }}>Ödəniş müddəti</label>
-                    <span style={{ color: 'var(--primary-600)', fontWeight: 700, fontSize: '1.25rem' }}>{termMonths} ay</span>
-                </div>
-                <div className="slider-container" style={{ marginTop: '1rem' }}>
-                    <input
-                        type="range"
-                        className="slider"
-                        min={3}
-                        max={59}
-                        step={1}
-                        value={termMonths}
-                        onChange={(e) => setTermMonths(parseInt(e.target.value))}
-                    />
-                    <div className="slider-labels">
-                        <span>3 ay</span>
-                        <span>59 ay</span>
-                    </div>
+                <label className="form-label" style={{ marginBottom: '1rem' }}>Ödəniş müddəti</label>
+                <div className="term-options">
+                    {[6, 12, 24, 36, 48, 59].map((months) => (
+                        <div
+                            key={months}
+                            className={`term-option ${termMonths === months ? 'selected' : ''}`}
+                            onClick={() => setTermMonths(months)}
+                        >
+                            <div style={{ fontWeight: 700, fontSize: '1.25rem' }}>{months}</div>
+                            <div style={{ fontSize: '0.875rem', opacity: 0.8 }}>ay</div>
+                        </div>
+                    ))}
                 </div>
             </div>
 
