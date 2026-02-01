@@ -1,0 +1,73 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: kredo-loan-service
+  
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:kredo_loan}
+    username: ${DB_USERNAME:kredo}
+    password: ${DB_PASSWORD:kredo_secret}
+    driver-class-name: org.postgresql.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+    show-sql: false
+    open-in-view: false
+  
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+# Security Configuration
+kredo:
+  security:
+    jwt:
+      secret: ${JWT_SECRET:myDefaultSecretKeyForDevelopmentOnlyChangeInProduction123456789}
+      expiration-seconds: 900  # 15 minutes
+    encryption:
+      key-base64: ${KREDO_DB_ENCRYPTION_KEY_BASE64:dGhpc2lzYTMyYnl0ZXNlY3JldGtleWZvcmFlczI1Ng==}
+  
+  otp:
+    ttl-seconds: 120
+    max-attempts: 5
+    lockout-minutes: 5
+    code-length: 6
+  
+  rate-limit:
+    otp:
+      requests-per-minute: 10
+
+# OpenAPI Configuration
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# Logging - No PII
+logging:
+  level:
+    root: INFO
+    az.kredo.loan: DEBUG
+    org.springframework.security: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%X{requestId}] %-5level %logger{36} - %msg%n"

@@ -1,0 +1,40 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+    show-sql: false
+  
+  flyway:
+    enabled: false
+
+kredo:
+  security:
+    jwt:
+      secret: testSecretKeyForUnitTestingOnly123456789012345678901234567890
+      expiration-seconds: 900
+    encryption:
+      key-base64: dGhpc2lzYTMyYnl0ZXNlY3JldGtleWZvcmFlczI1Ng==
+  
+  otp:
+    ttl-seconds: 120
+    max-attempts: 5
+    lockout-minutes: 5
+    code-length: 6
+  
+  rate-limit:
+    otp:
+      requests-per-minute: 100
+
+logging:
+  level:
+    root: WARN
+    az.kredo.loan: DEBUG

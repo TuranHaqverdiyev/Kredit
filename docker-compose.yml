@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: kredo-postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-kredo_loan}
+      POSTGRES_USER: ${DB_USERNAME:-kredo}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-kredo_secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USERNAME:-kredo} -d ${DB_NAME:-kredo_loan}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - kredo-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: kredo-backend
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME:-kredo_loan}
+      DB_USERNAME: ${DB_USERNAME:-kredo}
+      DB_PASSWORD: ${DB_PASSWORD:-kredo_secret}
+      JWT_SECRET: ${JWT_SECRET:-myDefaultSecretKeyForDevelopmentOnlyChangeInProduction123456789}
+      KREDO_DB_ENCRYPTION_KEY_BASE64: ${KREDO_DB_ENCRYPTION_KEY_BASE64:-dGhpc2lzYTMyYnl0ZXNlY3JldGtleWZvcmFlczI1NiE=}
+      JAVA_OPTS: "-Xmx512m -Xms256m"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: [ "CMD", "wget", "-q", "--spider", "http://localhost:8080/actuator/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - kredo-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: kredo-frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - kredo-network
+
+volumes:
+  postgres_data:
+
+
+networks:
+  kredo-network:
+    driver: bridge
