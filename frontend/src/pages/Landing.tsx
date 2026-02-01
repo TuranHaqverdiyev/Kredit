@@ -5,14 +5,21 @@ function Landing() {
     // Calculator state
     const [calcAmount, setCalcAmount] = useState(5000);
     const [calcMonths, setCalcMonths] = useState(12);
-    const [calcRate, setCalcRate] = useState(10.9);
+    const [calcRate, setCalcRate] = useState(12.0);
     const [monthlyPayment, setMonthlyPayment] = useState(0);
 
     useEffect(() => {
-        const monthlyRate = calcRate / 100 / 12;
+        // Dynamic interest rate calculation logic:
+        // Base rate is 24%. Lower amount/term = slightly higher rate.
+        // Higher amount/term = lower rate.
+        let rate = 24 - (calcAmount / 10000) - (calcMonths / 12) * 1.2;
+        rate = Math.max(10.9, Math.min(31.9, rate));
+        setCalcRate(parseFloat(rate.toFixed(1)));
+
+        const monthlyRate = rate / 100 / 12;
         const payment = (calcAmount * monthlyRate * Math.pow(1 + monthlyRate, calcMonths)) / (Math.pow(1 + monthlyRate, calcMonths) - 1);
         setMonthlyPayment(Math.round(payment));
-    }, [calcAmount, calcMonths, calcRate]);
+    }, [calcAmount, calcMonths]);
 
     return (
         <>
@@ -22,7 +29,7 @@ function Landing() {
                         <h1>Sürətli və Asan Onlayn Kredit</h1>
                         <p>
                             Credoline ilə kredit almaq heç vaxt bu qədər asan olmamışdı.
-                            Sadəcə bir neçə addımda kredit müraciətinizi tamamlayın.
+                            Müraciətinizi tam onlayn şəkildə tamamlayın.
                         </p>
                         <div className="hero-features">
                             <div className="hero-feature">
@@ -119,24 +126,17 @@ function Landing() {
                                 </div>
                             </div>
 
-                            <div className="form-group">
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
-                                    <label className="form-label" style={{ marginBottom: 0 }}>İllik faiz (%)</label>
-                                    <span style={{ fontWeight: 600, color: 'var(--primary-600)' }}>{calcRate}%</span>
-                                </div>
-                                <input
-                                    type="range"
-                                    className="slider"
-                                    min={10.9}
-                                    max={31.9}
-                                    step={0.1}
-                                    value={calcRate}
-                                    onChange={(e) => setCalcRate(Number(e.target.value))}
-                                />
-                                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--gray-400)', marginTop: '0.5rem' }}>
-                                    <span>10.9%</span>
-                                    <span>31.9%</span>
-                                </div>
+                            <div style={{
+                                background: 'white',
+                                borderRadius: 'var(--radius)',
+                                padding: '1.25rem',
+                                border: '1px solid var(--gray-200)',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                            }}>
+                                <span style={{ color: 'var(--gray-500)' }}>İllik faiz dərəcəsi</span>
+                                <span style={{ fontWeight: 700, color: 'var(--primary-600)', fontSize: '1.25rem' }}>{calcRate}%</span>
                             </div>
                         </div>
 
@@ -155,13 +155,9 @@ function Landing() {
                             <h3 style={{ fontSize: '3rem', marginBottom: '2rem' }}>{monthlyPayment.toLocaleString()} AZN</h3>
 
                             <div style={{ width: '100%', paddingTop: '1.5rem', borderTop: '1px solid rgba(255,255,255,0.2)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                     <span style={{ opacity: 0.8 }}>Cəmi ödəniş</span>
                                     <span style={{ fontWeight: 600 }}>{(monthlyPayment * calcMonths).toLocaleString()} AZN</span>
-                                </div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <span style={{ opacity: 0.8 }}>Ümumi faiz</span>
-                                    <span style={{ fontWeight: 600 }}>{(monthlyPayment * calcMonths - calcAmount).toLocaleString()} AZN</span>
                                 </div>
                             </div>
 
@@ -175,7 +171,7 @@ function Landing() {
 
             <section style={{ padding: '4rem 2rem', maxWidth: '1280px', margin: '0 auto' }}>
                 <h2 style={{ textAlign: 'center', marginBottom: '3rem', fontSize: '2rem', color: 'var(--gray-900)' }}>
-                    Sadə 4 Addımda Kredit Alın
+                    4 Addımda Kredit Alın
                 </h2>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem' }}>
                     <div className="card">
@@ -192,7 +188,7 @@ function Landing() {
                         }}>
                             📱
                         </div>
-                        <h3 style={{ marginBottom: '0.5rem' }}>1. Telefon Təsdiqi</h3>
+                        <h3 style={{ marginBottom: '0.5rem' }}>1. Mobil nömrənin təsdiqi</h3>
                         <p style={{ color: 'var(--gray-500)', fontSize: '0.875rem' }}>
                             Mobil nömrənizi daxil edin və SMS ilə göndərilən kodu təsdiq edin.
                         </p>

@@ -10,7 +10,7 @@ import type {
     LoanResultResponse
 } from '../types';
 
-const STEPS = ['Giriş', 'Məlumatlar', 'Məbləğ', 'Təklif', 'Video KYC', 'Müqavilə', 'Nəticə'];
+const STEPS = ['Giriş', 'Məlumatlar', 'Məbləğ', 'Təklif', 'Məlumat Forması', 'Müqavilə', 'Video KYC', 'Təsdiq', 'Nəticə'];
 
 function ApplyWizard() {
     const [currentStep, setCurrentStep] = useState(1);
@@ -49,6 +49,12 @@ function ApplyWizard() {
 
     // Application ID
     const [applicationId, setApplicationId] = useState<string | null>(null);
+
+    // Final Step: Delivery
+    const [deliveryMethod, setDeliveryMethod] = useState<'BRANCH' | 'CARD' | 'COURIER'>('CARD');
+    const [selectedBranch, setSelectedBranch] = useState('');
+    const [cardNumber, setCardNumber] = useState('');
+    const [deliveryAddress, setDeliveryAddress] = useState('');
 
     // Clear error when step changes
     useEffect(() => {
@@ -204,11 +210,11 @@ function ApplyWizard() {
             }
         },
         onSuccess: () => {
-            setCurrentStep(7);
+            setCurrentStep(9);
             setError(null);
         },
         onError: () => {
-            setCurrentStep(7);
+            setCurrentStep(9);
             setError(null);
         },
     });
@@ -219,49 +225,58 @@ function ApplyWizard() {
         queryFn: async () => {
             try {
                 const data = await loanService.getResult(applicationId!);
-                // For the demo, if we are in step 4 or 7 and the backend hasn't moved yet, 
-                // we force it to the target status so the user sees the result immediately.
-                if (currentStep === 4 && data) {
-                    return {
-                        ...data,
-                        status: 'OFFER_PENDING',
-                        decision: 'APPROVED',
-                        approvedAmount: data.approvedAmount || requestedAmount,
-                        apr: data.apr || 12.0
-                    };
+
+                // Mock logic for the demo: 3000 AZN threshold
+                let approvedAmount = data?.approvedAmount || requestedAmount;
+                let apr = data?.apr || 12.0;
+
+                if (approvedAmount > 3000) {
+                    approvedAmount = approvedAmount * 0.95; // 5% lower amount
+                    apr = apr + Math.random() * 3 + 1; // 1-4% higher rate
                 }
-                if (currentStep === 7 && data) {
+
+                // Force status for smooth wizard flow
+                if (currentStep >= 4 && data) {
+                    let targetStatus = data.status;
+                    if (currentStep === 4) targetStatus = 'OFFER_PENDING';
+                    if (currentStep === 8) targetStatus = 'COMPLETED';
+
                     return {
                         ...data,
-                        status: 'COMPLETED',
+                        status: targetStatus,
                         decision: 'APPROVED',
-                        approvedAmount: data.approvedAmount || requestedAmount,
-                        apr: data.apr || 12.0
+                        approvedAmount: parseFloat(approvedAmount.toFixed(0)),
+                        apr: parseFloat(apr.toFixed(1))
                     };
                 }
                 return data;
             } catch (e) {
                 // Return high quality mock data if backend fails
+                let approvedAmount = requestedAmount;
+                let apr = 12.0;
+
+                if (approvedAmount > 3000) {
+                    approvedAmount = approvedAmount * 0.95;
+                    apr = apr + 2.5;
+                }
+
                 return {
                     applicationId,
-                    status: currentStep === 4 ? 'OFFER_PENDING' : (currentStep === 7 ? 'COMPLETED' : 'SCORING'),
+                    status: (currentStep >= 4 && currentStep < 8) ? 'OFFER_PENDING' : (currentStep === 8 ? 'COMPLETED' : 'SCORING'),
                     decision: 'APPROVED',
-                    approvedAmount: requestedAmount,
-                    apr: 12.0,
+                    approvedAmount: parseFloat(approvedAmount.toFixed(0)),
+                    apr: parseFloat(apr.toFixed(1)),
                     score: 850,
                     reasonCodes: ['MOCK_SUCCESS', 'PRE_APPROVED']
                 };
             }
         },
-        enabled: (currentStep === 4 || currentStep === 7) && !!applicationId && !!getAccessToken(),
+        enabled: (currentStep >= 4) && !!applicationId && !!getAccessToken(),
         refetchInterval: (query) => {
             const data = query.state.data as LoanResultResponse | undefined;
-            // Stop polling once reached target status
             if (currentStep === 4 && data?.status === 'OFFER_PENDING') return false;
-            if (currentStep === 7 && data?.status === 'COMPLETED') return false;
-            if (data?.decision === 'REJECTED') return false;
-
-            return 500; // Super fast polling
+            if (currentStep === 8 && data?.status === 'COMPLETED') return false;
+            return 1000;
         },
     });
 
@@ -305,10 +320,8 @@ function ApplyWizard() {
     const renderStep1 = () => (
         <div className="wizard-card fade-in">
             <div className="wizard-header">
-                <h2 className="wizard-title">Telefon Təsdiqi</h2>
-                <p className="wizard-subtitle">
-                    Mobil nömrənizi daxil edin, sizə SMS ilə təsdiq kodu göndərəcəyik
-                </p>
+                <h2 className="wizard-title">Mobil nömrənin təsdiqi</h2>
+                <p className="wizard-subtitle">Müraciəti davam etdirmək üçün nömrənizi təsdiqləyin</p>
             </div>
 
             {error && <div className="alert alert-error">{error}</div>}
@@ -401,7 +414,7 @@ function ApplyWizard() {
         <div className="wizard-card fade-in">
             <div className="wizard-header">
                 <h2 className="wizard-title">Şəxsi Məlumatlar</h2>
-                <p className="wizard-subtitle">ASAN (IAMAS) sistemindən əldə edilən məlumatlar</p>
+                <p className="wizard-subtitle">Məlumatların düzgünlüyünü yoxlayın</p>
                 <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                     <div style={{
                         display: 'inline-block',
@@ -603,19 +616,23 @@ function ApplyWizard() {
                 </div>
             </div>
 
-            <div className="form-group" style={{ marginTop: '2rem' }}>
-                <label className="form-label" style={{ marginBottom: '1rem' }}>Ödəniş müddəti</label>
-                <div className="term-options">
-                    {[6, 12, 24, 36, 48, 59].map((months) => (
-                        <div
-                            key={months}
-                            className={`term-option ${termMonths === months ? 'selected' : ''}`}
-                            onClick={() => setTermMonths(months)}
-                        >
-                            <div style={{ fontWeight: 700, fontSize: '1.25rem' }}>{months}</div>
-                            <div style={{ fontSize: '0.875rem', opacity: 0.8 }}>ay</div>
-                        </div>
-                    ))}
+            <div className="form-group" style={{ marginTop: '2.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                    <label className="form-label" style={{ marginBottom: 0 }}>Ödəniş müddəti (ay)</label>
+                    <span style={{ fontWeight: 600, color: 'var(--primary-600)' }}>{termMonths} ay</span>
+                </div>
+                <input
+                    type="range"
+                    className="slider"
+                    min={6}
+                    max={59}
+                    step={1}
+                    value={termMonths}
+                    onChange={(e) => setTermMonths(parseInt(e.target.value))}
+                />
+                <div className="slider-labels">
+                    <span>6 ay</span>
+                    <span>59 ay</span>
                 </div>
             </div>
 
@@ -633,7 +650,9 @@ function ApplyWizard() {
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ color: 'var(--gray-500)' }}>İllik faiz dərəcəsi</span>
-                    <span style={{ fontWeight: 600 }}>10,9% - 31,9%</span>
+                    <span style={{ fontWeight: 600 }}>
+                        {((24 - (requestedAmount / 10000) - (termMonths / 12) * 1.2)).toFixed(1)}%
+                    </span>
                 </div>
             </div>
 
@@ -670,34 +689,35 @@ function ApplyWizard() {
                     <p className="wizard-subtitle">Müraciətiniz əsasında sizə aşağıdakı şərtlərlə kredit təklif edirik</p>
                 </div>
 
-                <div className="result-card" style={{ boxShadow: 'none', border: '1px solid var(--gray-200)', background: 'var(--primary-50)', padding: '2rem' }}>
-                    <div className="amount-display" style={{ marginBottom: '1.5rem' }}>
-                        <span className="amount-value" style={{ color: 'var(--primary-600)', fontSize: '2.5rem' }}>{result?.approvedAmount?.toLocaleString()}</span>
-                        <span className="amount-currency">AZN</span>
+                <div className="offer-premium-card">
+                    <div className="offer-amount-large">
+                        <span className="val">{result?.approvedAmount?.toLocaleString()}</span>
+                        <span className="cur">AZN</span>
                     </div>
 
-                    <div className="result-details" style={{ marginTop: '1rem' }}>
-                        <div className="result-row">
-                            <span className="result-label">Müddət</span>
-                            <span className="result-value">{termMonths} ay</span>
+                    <div className="offer-details-grid">
+                        <div className="offer-detail">
+                            <span className="label">Müddət</span>
+                            <span className="value">{termMonths} ay</span>
                         </div>
-                        <div className="result-row">
-                            <span className="result-label">İllik faiz dərəcəsi</span>
-                            <span className="result-value">{result?.apr}%</span>
+                        <div className="offer-detail">
+                            <span className="label">İllik faiz dərəcəsi</span>
+                            <span className="value">{result?.apr}%</span>
                         </div>
-                        <div className="result-row" style={{ borderTop: '1px solid var(--gray-200)', paddingTop: '1rem', marginTop: '1rem' }}>
-                            <span className="result-label" style={{ fontWeight: 600 }}>Aylıq ödəniş</span>
-                            <span className="result-value" style={{ fontWeight: 700, fontSize: '1.25rem', color: 'var(--primary-700)' }}>
-                                {result?.approvedAmount && Math.round((result.approvedAmount * (1 + (result.apr || 0) / 100)) / termMonths).toLocaleString()} AZN
-                            </span>
-                        </div>
+                    </div>
+
+                    <div className="offer-monthly">
+                        <span className="label">Aylıq ödəniş</span>
+                        <span className="value">
+                            {result?.approvedAmount && Math.round((result.approvedAmount * (1 + (result.apr || 0) / 100)) / termMonths).toLocaleString()} AZN
+                        </span>
                     </div>
                 </div>
 
                 <div className="wizard-actions" style={{ marginTop: '2rem' }}>
                     <button
                         className="btn btn-outline"
-                        style={{ borderColor: 'var(--error-500)', color: 'var(--error-600)' }}
+                        style={{ flex: 1, borderColor: 'var(--error-500)', color: 'var(--error-600)' }}
                         onClick={() => rejectOfferMutation.mutate()}
                         disabled={rejectOfferMutation.isPending}
                     >
@@ -705,6 +725,7 @@ function ApplyWizard() {
                     </button>
                     <button
                         className="btn btn-secondary"
+                        style={{ flex: 2 }}
                         onClick={() => acceptOfferMutation.mutate()}
                         disabled={acceptOfferMutation.isPending}
                     >
@@ -718,15 +739,96 @@ function ApplyWizard() {
     const renderStep5 = () => (
         <div className="wizard-card fade-in">
             <div className="wizard-header">
+                <h2 className="wizard-title">Standart Məlumatlandırma Forması</h2>
+                <p className="wizard-subtitle">Kredit şərtləri barədə ətraflı məlumat</p>
+            </div>
+
+            <div style={{
+                height: '400px',
+                border: '1px solid var(--gray-200)',
+                borderRadius: 'var(--radius)',
+                marginBottom: '1.5rem',
+                overflow: 'hidden'
+            }}>
+                <iframe
+                    src="/files/Standart məlumatlandırma forması.pdf"
+                    width="100%"
+                    height="100%"
+                    style={{ border: 'none' }}
+                />
+            </div>
+
+            <div className="wizard-actions">
+                <button className="btn btn-outline" onClick={() => setCurrentStep(4)}>Geri</button>
+                <button
+                    className="btn btn-secondary"
+                    onClick={() => setCurrentStep(6)}
+                >
+                    Oxudum, növbəti →
+                </button>
+            </div>
+        </div>
+    );
+
+    const renderStep6 = () => (
+        <div className="wizard-card fade-in">
+            <div className="wizard-header">
+                <h2 className="wizard-title">Kredit Müqaviləsi</h2>
+                <p className="wizard-subtitle">Müqaviləni oxuyun və imzalayın</p>
+            </div>
+
+            <div style={{
+                height: '400px',
+                border: '1px solid var(--gray-200)',
+                borderRadius: 'var(--radius)',
+                marginBottom: '1.5rem',
+                overflow: 'hidden'
+            }}>
+                <iframe
+                    src="/files/asan finance.pdf"
+                    width="100%"
+                    height="100%"
+                    style={{ border: 'none' }}
+                />
+            </div>
+
+            <div className="form-group" style={{ backgroundColor: 'var(--primary-50)', padding: '1rem', borderRadius: 'var(--radius)' }}>
+                <label className="checkbox-container">
+                    <input
+                        type="checkbox"
+                        className="checkbox-input"
+                        checked={contractSigned}
+                        onChange={(e) => setContractSigned(e.target.checked)}
+                    />
+                    <span className="checkbox-label" style={{ fontSize: '0.875rem' }}>
+                        Müqavilə şərtləri ilə razıyam və elektron imza ilə təsdiqləyirəm.
+                    </span>
+                </label>
+            </div>
+
+            <div className="wizard-actions" style={{ marginTop: '1.5rem' }}>
+                <button className="btn btn-outline" onClick={() => setCurrentStep(5)}>Geri</button>
+                <button
+                    className="btn btn-secondary"
+                    disabled={!contractSigned}
+                    onClick={() => setCurrentStep(7)}
+                >
+                    Təsdiqlə və Davam et →
+                </button>
+            </div>
+        </div>
+    );
+
+    const renderStep7 = () => (
+        <div className="wizard-card fade-in">
+            <div className="wizard-header">
                 <h2 className="wizard-title">Video Qeydiyyat</h2>
+                <p className="wizard-subtitle">Şəxsiyyətinizi təsdiq etmək üçün qısa video çəkin</p>
             </div>
 
             <div style={{ backgroundColor: 'var(--primary-50)', padding: '1rem', borderRadius: 'var(--radius)', marginBottom: '1.5rem' }}>
-                <p style={{ fontSize: '0.875rem', color: 'var(--gray-700)', marginBottom: '0.5rem' }}>
-                    <strong>Qeyd:</strong> Şəxsiyyətinizi təsdiq etmək üçün videoda aşağıdakı mətni oxuyun:
-                </p>
                 <div style={{ backgroundColor: 'white', padding: '1rem', borderLeft: '4px solid var(--primary-600)', fontStyle: 'italic', fontSize: '0.875rem' }}>
-                    Mən, {firstName} {lastName}, Credoline-dan {resultQuery.data?.approvedAmount?.toLocaleString()} AZN məbləğində kredit götürməyə razılıq verirəm.
+                    Mən, {firstName} {lastName}, Credoline-dan kredit götürməyə razılıq verirəm.
                 </div>
             </div>
 
@@ -743,12 +845,11 @@ function ApplyWizard() {
                 overflow: 'hidden'
             }}>
                 <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>📷</div>
-                <p style={{ opacity: 0.7, fontSize: '0.875rem' }}>Video çəkilişi üçün hazır olun</p>
 
                 {!isRecording && !videoKycDone && (
                     <button
                         className="btn btn-danger"
-                        style={{ marginTop: '1rem', backgroundColor: '#e63946', borderColor: '#e63946', borderRadius: 'var(--radius-full)', padding: '0.75rem 2rem' }}
+                        style={{ background: '#e63946', borderColor: '#e63946' }}
                         onClick={() => {
                             setIsRecording(true);
                             setTimeout(() => {
@@ -768,19 +869,15 @@ function ApplyWizard() {
                     </div>
                 )}
 
-                {videoKycDone && (
-                    <div style={{ color: 'var(--success-500)', fontWeight: 600 }}>
-                        ✓ Video çəkildi
-                    </div>
-                )}
+                {videoKycDone && <div style={{ color: 'var(--success-500)', fontWeight: 600 }}>✓ Video çəkildi</div>}
             </div>
 
             <div className="wizard-actions" style={{ marginTop: '1.5rem' }}>
-                <button className="btn btn-outline" onClick={() => setCurrentStep(4)}>Geri</button>
+                <button className="btn btn-outline" onClick={() => setCurrentStep(6)}>Geri</button>
                 <button
                     className="btn btn-secondary"
                     disabled={!videoKycDone}
-                    onClick={() => setCurrentStep(6)}
+                    onClick={() => setCurrentStep(8)}
                 >
                     Növbəti →
                 </button>
@@ -788,147 +885,120 @@ function ApplyWizard() {
         </div>
     );
 
-    const renderStep6 = () => (
+    const renderStep8 = () => (
         <div className="wizard-card fade-in">
             <div className="wizard-header">
-                <h2 className="wizard-title">Kredit Müqaviləsi</h2>
-                <p className="wizard-subtitle">Müqaviləni oxuyun və imzalayın</p>
+                <h2 className="wizard-title">Kreditin Alınması</h2>
+                <p className="wizard-subtitle">Vəsaitin sizə çatdırılma üsulunu seçin</p>
             </div>
 
-            <div style={{
-                height: '300px',
-                overflowY: 'scroll',
-                border: '1px solid var(--gray-200)',
-                borderRadius: 'var(--radius)',
-                padding: '1.5rem',
-                backgroundColor: 'white',
-                marginBottom: '1.5rem',
-                fontSize: '0.875rem',
-                lineHeight: '1.6'
-            }}>
-                <h4 style={{ textAlign: 'center', textTransform: 'uppercase', marginBottom: '1.5rem' }}>KREDİT MÜQAVİLƏSİ</h4>
-                <p><strong>Kredit Verən:</strong> Credoline ASC</p>
-                <p><strong>Kredit Alan:</strong> {firstName} {lastName}</p>
-                <p><strong>Kredit Alan şəxsin FİN kodu:</strong> {loginFin}</p>
-                <p><strong>Telefon:</strong> +994{phoneNumber}</p>
-                <p><strong>Təsdiq edilən məbləğ:</strong> {resultQuery.data?.approvedAmount?.toLocaleString()} AZN</p>
-                <p><strong>Kredit müddəti:</strong> {termMonths} ay</p>
-                <p><strong>İllik faiz dərəcəsi:</strong> {resultQuery.data?.apr}%</p>
-                <br />
-                <p><strong>Şərtlər:</strong></p>
-                <p>1. Bu müqavilə borcalan ilə borc verən arasında münasibətləri tənzimləyir.</p>
-                <p>2. Borcalan hər ay vaxtlı-vaxtında ödənişləri etməyi öhdəsinə götürür.</p>
-                <p>3. Gecikmə halında cərimələr tətbiq edilə bilər.</p>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
-                <a
-                    href="/files/asan finance.pdf"
-                    target="_blank"
-                    className="btn btn-outline"
-                    style={{ fontSize: '0.875rem', padding: '0.75rem' }}
-                >
-                    📥 Müqavilə (PDF)
-                </a>
-                <a
-                    href="/files/Standart məlumatlandırma forması.pdf"
-                    target="_blank"
-                    className="btn btn-outline"
-                    style={{ fontSize: '0.875rem', padding: '0.75rem' }}
-                >
-                    📥 Məlumat forması
-                </a>
-            </div>
-
-            <div className="form-group" style={{ backgroundColor: 'var(--primary-50)', padding: '1rem', borderRadius: 'var(--radius)' }}>
-                <label className="checkbox-container">
-                    <input
-                        type="checkbox"
-                        className="checkbox-input"
-                        checked={contractSigned}
-                        onChange={(e) => setContractSigned(e.target.checked)}
-                    />
-                    <span className="checkbox-label" style={{ fontSize: '0.875rem' }}>
-                        Müqaviləni oxudum və elektron imza ilə təsdiq edirəm. <span style={{ color: 'red' }}>*</span>
-                    </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
+                <label className={`card-select ${deliveryMethod === 'CARD' ? 'active' : ''}`} onClick={() => setDeliveryMethod('CARD')}>
+                    <input type="radio" checked={deliveryMethod === 'CARD'} readOnly style={{ display: 'none' }} />
+                    <div style={{ fontWeight: 600 }}>💳 Kart hesabına köçürmə</div>
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--gray-500)', marginTop: '0.25rem' }}>Vəsait dərhal kartınıza mədaxil ediləcək</p>
                 </label>
+
+                {deliveryMethod === 'CARD' && (
+                    <div className="form-group fade-in" style={{ paddingLeft: '1rem' }}>
+                        <label className="form-label">Kart nömrəsi</label>
+                        <input
+                            type="text"
+                            className="form-input"
+                            placeholder="4169 **** **** ****"
+                            value={cardNumber}
+                            onChange={(e) => setCardNumber(e.target.value.replace(/\D/g, '').slice(0, 16))}
+                        />
+                    </div>
+                )}
+
+                <label className={`card-select ${deliveryMethod === 'BRANCH' ? 'active' : ''}`} onClick={() => setDeliveryMethod('BRANCH')}>
+                    <input type="radio" checked={deliveryMethod === 'BRANCH'} readOnly style={{ display: 'none' }} />
+                    <div style={{ fontWeight: 600 }}>🏦 Filialdan götürmə</div>
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--gray-500)', marginTop: '0.25rem' }}>Sizə yaxın olan filialımızdan nağd şəkildə alın</p>
+                </label>
+
+                {deliveryMethod === 'BRANCH' && (
+                    <div className="form-group fade-in" style={{ paddingLeft: '1rem' }}>
+                        <label className="form-label">Filial seçin</label>
+                        <select className="form-input" value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)}>
+                            <option value="">Seçin...</option>
+                            <option value="1">Mərkəz filialı</option>
+                            <option value="2">Yasamal filialı</option>
+                            <option value="3">Nərimanov filialı</option>
+                        </select>
+                    </div>
+                )}
+
+                <label className={`card-select ${deliveryMethod === 'COURIER' ? 'active' : ''}`} onClick={() => setDeliveryMethod('COURIER')}>
+                    <input type="radio" checked={deliveryMethod === 'COURIER'} readOnly style={{ display: 'none' }} />
+                    <div style={{ fontWeight: 600 }}>🚚 Kuryer ilə çatdırılma</div>
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--gray-500)', marginTop: '0.25rem' }}>Kartınız bir iş günü ərzində ünvanınıza çatdırılacaq</p>
+                </label>
+
+                {deliveryMethod === 'COURIER' && (
+                    <div className="form-group fade-in" style={{ paddingLeft: '1rem' }}>
+                        <label className="form-label">Çatdırılma ünvanı</label>
+                        <input
+                            type="text"
+                            className="form-input"
+                            placeholder="Məs: Bakı ş, Heydər Əliyev pr. 1"
+                            value={deliveryAddress}
+                            onChange={(e) => setDeliveryAddress(e.target.value)}
+                        />
+                    </div>
+                )}
             </div>
 
-            <div className="wizard-actions" style={{ marginTop: '1.5rem' }}>
-                <button className="btn btn-outline" onClick={() => setCurrentStep(5)}>Geri</button>
-                <button
-                    className="btn btn-secondary"
-                    disabled={!contractSigned || finalizeMutation.isPending}
-                    onClick={() => finalizeMutation.mutate()}
-                >
-                    {finalizeMutation.isPending ? 'Tamamlanır...' : 'Müraciəti Tamamla'}
-                </button>
-            </div>
+            <button
+                className="btn btn-secondary"
+                style={{ width: '100%' }}
+                onClick={() => finalizeMutation.mutate()}
+                disabled={finalizeMutation.isPending || (deliveryMethod === 'CARD' && cardNumber.length < 16) || (deliveryMethod === 'BRANCH' && !selectedBranch) || (deliveryMethod === 'COURIER' && !deliveryAddress)}
+            >
+                {finalizeMutation.isPending ? 'Tamamlanır...' : 'Təsdiq et'}
+            </button>
         </div>
     );
 
-    const renderStep7 = () => {
+    const renderStep9 = () => {
         const result = resultQuery.data;
-        const isLoading = resultQuery.isLoading || result?.status !== 'COMPLETED';
+        const [seconds, setSeconds] = useState(5);
 
-        if (isLoading) {
-            return (
-                <div className="wizard-card fade-in">
-                    <div className="loading-container">
-                        <div className="spinner" />
-                        <p className="loading-text">Yekun sənədlər hazırlanır...</p>
-                    </div>
-                </div>
-            );
-        }
-
-        const decision = result?.decision;
-        const isApproved = decision === 'APPROVED';
-        const isRejected = decision === 'REJECTED';
-        const isReview = decision === 'MANUAL_REVIEW';
+        useEffect(() => {
+            const timer = setInterval(() => {
+                setSeconds((prev) => {
+                    if (prev <= 1) {
+                        window.location.href = '/';
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+            return () => clearInterval(timer);
+        }, []);
 
         return (
             <div className="wizard-card fade-in">
                 <div className="result-card">
-                    <div className={`result-icon ${isApproved ? 'approved' : isRejected ? 'rejected' : 'review'}`}>
-                        {isApproved ? '✓' : isRejected ? '✕' : '⏳'}
-                    </div>
-
-                    <h2 className={`result-title ${isApproved ? 'approved' : isRejected ? 'rejected' : 'review'}`}>
-                        {isApproved && 'Təbriklər!'}
-                        {isRejected && 'Təəssüf ki...'}
-                        {isReview && 'Əlavə Baxış'}
-                    </h2>
-
-                    <p className="result-subtitle">
-                        {isApproved && 'Kredit müraciətiniz uğurla tamamlandı'}
-                        {isRejected && 'Müraciətiniz rədd edildi'}
-                        {isReview && 'Müraciətiniz əlavə baxış tələb edir'}
-                    </p>
-
+                    <div className="result-icon approved">✓</div>
+                    <h2 className="result-title approved">Təbriklər!</h2>
+                    <p className="result-subtitle">Kredit müraciətiniz uğurla tamamlandı</p>
                     <div className="result-details">
                         <div className="result-row">
                             <span className="result-label">Müraciət ID</span>
                             <span className="result-value">{applicationId?.slice(0, 8)}...</span>
                         </div>
-                        {isApproved && (
-                            <>
-                                <div className="result-row">
-                                    <span className="result-label">Təsdiq edilən məbləğ</span>
-                                    <span className="result-value" style={{ color: 'var(--success-600)' }}>
-                                        {result?.approvedAmount?.toLocaleString()} AZN
-                                    </span>
-                                </div>
-                                <div className="result-row">
-                                    <span className="result-label">İllik faiz</span>
-                                    <span className="result-value">{result?.apr}%</span>
-                                </div>
-                            </>
-                        )}
-                        <div className="alert alert-info" style={{ marginTop: '1.5rem', marginBottom: 0, fontSize: '0.875rem' }}>
-                            Məbləğ 24 saat ərzində hesabınıza köçürüləcək.
+                        <div className="result-row">
+                            <span className="result-label">Təsdiq edilən məbləğ</span>
+                            <span className="result-value" style={{ color: 'var(--success-600)' }}>
+                                {result?.approvedAmount?.toLocaleString()} AZN
+                            </span>
                         </div>
                     </div>
+                </div>
+                <div style={{ textAlign: 'center', marginTop: '2rem', color: 'var(--gray-500)', fontSize: '0.875rem' }}>
+                    {seconds} saniyə ərzində ana səhifəyə yönləndiriləcəksiniz...
                 </div>
             </div>
         );
@@ -945,6 +1015,8 @@ function ApplyWizard() {
             {currentStep === 5 && renderStep5()}
             {currentStep === 6 && renderStep6()}
             {currentStep === 7 && renderStep7()}
+            {currentStep === 8 && renderStep8()}
+            {currentStep === 9 && renderStep9()}
         </div>
     );
 };
