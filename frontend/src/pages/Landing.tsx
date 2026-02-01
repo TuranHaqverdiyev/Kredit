@@ -55,7 +55,7 @@ function Landing() {
                                 <div className="stat-label">-dən başlayan illik faiz</div>
                             </div>
                             <div className="stat-item">
-                                <div className="stat-value">60</div>
+                                <div className="stat-value">59</div>
                                 <div className="stat-label">ay-a qədər müddət</div>
                             </div>
                             <div className="stat-item">
@@ -107,15 +107,15 @@ function Landing() {
                                 <input
                                     type="range"
                                     className="slider"
-                                    min={6}
-                                    max={60}
-                                    step={6}
+                                    min={3}
+                                    max={59}
+                                    step={1}
                                     value={calcMonths}
                                     onChange={(e) => setCalcMonths(Number(e.target.value))}
                                 />
                                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--gray-400)', marginTop: '0.5rem' }}>
-                                    <span>6 ay</span>
-                                    <span>60 ay</span>
+                                    <span>3 ay</span>
+                                    <span>59 ay</span>
                                 </div>
                             </div>
 

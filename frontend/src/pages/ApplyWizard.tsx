@@ -531,32 +531,35 @@ function ApplyWizard() {
                 </div>
             </div>
 
-            <div className="form-group">
-                <label className="checkbox-container">
-                    <input
-                        type="checkbox"
-                        className="checkbox-input"
-                        checked={termsAccepted}
-                        onChange={(e) => setTermsAccepted(e.target.checked)}
-                    />
-                    <span className="checkbox-label">
-                        <a href="/files/asan finance.pdf" target="_blank" rel="noopener noreferrer">ASAN Finance razılıq ərizəsi</a> ilə razıyam
-                    </span>
-                </label>
-            </div>
+            <div className="consent-section" style={{ backgroundColor: 'var(--gray-50)', padding: '1.25rem', borderRadius: 'var(--radius)', marginBottom: '1.5rem' }}>
+                <p style={{ fontSize: '0.875rem', fontWeight: 600, marginBottom: '0.75rem', color: 'var(--gray-700)' }}>
+                    Sənədlər və Razılıqlar
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <label className="checkbox-container">
+                        <input
+                            type="checkbox"
+                            className="checkbox-input"
+                            checked={termsAccepted}
+                            onChange={(e) => setTermsAccepted(e.target.checked)}
+                        />
+                        <span className="checkbox-label" style={{ fontSize: '0.875rem' }}>
+                            Mən <a href="/files/asan finance.pdf" target="_blank" rel="noopener noreferrer">ASAN Finance</a> və <a href="/files/AKB.pdf" target="_blank" rel="noopener noreferrer">AKB</a> razılıq ərizələrini, həmçinin <a href="/files/Terms_of_Use.pdf" target="_blank" rel="noopener noreferrer">İstifadə Şərtləri</a> və <a href="/files/Standart məlumatlandırma forması.pdf" target="_blank" rel="noopener noreferrer">Məlumatlandırma formasını</a> oxudum və razıyam.
+                        </span>
+                    </label>
 
-            <div className="form-group">
-                <label className="checkbox-container">
-                    <input
-                        type="checkbox"
-                        className="checkbox-input"
-                        checked={privacyAccepted}
-                        onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                    />
-                    <span className="checkbox-label">
-                        <a href="/files/AKB.pdf" target="_blank" rel="noopener noreferrer">AKB razılıq ərizəsi</a> ilə razıyam
-                    </span>
-                </label>
+                    <label className="checkbox-container">
+                        <input
+                            type="checkbox"
+                            className="checkbox-input"
+                            checked={privacyAccepted}
+                            onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                        />
+                        <span className="checkbox-label" style={{ fontSize: '0.875rem' }}>
+                            <a href="/files/Privacy_Policy.pdf" target="_blank" rel="noopener noreferrer">Məxfilik Siyasəti</a> ilə razıyam.
+                        </span>
+                    </label>
+                </div>
             </div>
 
             <button
@@ -824,14 +827,24 @@ function ApplyWizard() {
                 <p>3. Gecikmə halında cərimələr tətbiq edilə bilər.</p>
             </div>
 
-            <a
-                href="/files/asan finance.pdf"
-                target="_blank"
-                className="btn btn-primary"
-                style={{ width: '100%', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-            >
-                📥 Müqaviləni yüklə (PDF)
-            </a>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+                <a
+                    href="/files/asan finance.pdf"
+                    target="_blank"
+                    className="btn btn-outline"
+                    style={{ fontSize: '0.875rem', padding: '0.75rem' }}
+                >
+                    📥 Müqavilə (PDF)
+                </a>
+                <a
+                    href="/files/Standart məlumatlandırma forması.pdf"
+                    target="_blank"
+                    className="btn btn-outline"
+                    style={{ fontSize: '0.875rem', padding: '0.75rem' }}
+                >
+                    📥 Məlumat forması
+                </a>
+            </div>
 
             <div className="form-group" style={{ backgroundColor: 'var(--primary-50)', padding: '1rem', borderRadius: 'var(--radius)' }}>
                 <label className="checkbox-container">
